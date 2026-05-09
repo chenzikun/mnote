@@ -1,0 +1,6 @@
+# SwiftPM（包在子目录 mnote/ 下）
+**/.build/
+**/.swiftpm/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
