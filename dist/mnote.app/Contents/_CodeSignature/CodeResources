@@ -8,6 +8,14 @@
 		<data>
 		u7e7oMuPPFrL0zcDLDfXxKWvdoY=
 		</data>
+		<key>Resources/mnote-mark-folder.png</key>
+		<data>
+		7QPrBZlJyxmrj17tzhxkcjkZJaA=
+		</data>
+		<key>Resources/mnote-mark.svg</key>
+		<data>
+		VDXX+cxl+x8fjM988zTM6LDG8ws=
+		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
@@ -16,6 +24,20 @@
 			<key>hash2</key>
 			<data>
 			h1jeafC9VL9rp9QPINKrIOr1NV37GjMBvVIoRaiuCWE=
+			</data>
+		</dict>
+		<key>Resources/mnote-mark-folder.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			GXGfe4iJ6FeI1fbY83ins9baU6DEUE54hWVD4ygIdr8=
+			</data>
+		</dict>
+		<key>Resources/mnote-mark.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			R6HXNNN3Hd7vEEz5bJto7AvDozO8MESbJlcuC1yZjds=
 			</data>
 		</dict>
 	</dict>

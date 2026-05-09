@@ -1,0 +1,41 @@
+---
+alwaysApply: true
+---
+
+# macOS 应用构建与分发（通用）
+
+## 分发形态与 DMG
+
+- **`.app` 包结构**：`Contents/MacOS/` 可执行文件、`Info.plist`、`Resources/`（图标、本地化、辅助资源）。手写组装时须与 `CFBundleExecutable` 一致。
+- **常见 DMG 流程**：`swift build`/Xcode 产出 → 组装 `.app` →（可选）`codesign` → 临时目录放入 `.app` + `ln -sf /Applications` 快捷方式 → `hdiutil create -srcfolder … -format UDZO` 压缩镜像 → 删除临时目录。
+- **卷名与命名**：`-volname` 仅影响挂载后磁盘名；产物文件名与版本号由项目自行约定。
+
+## 代码签名（codesign）
+
+- **Ad-hoc**：`codesign --force --sign - Your.app`，任意 Mac 可本地运行；**不能**替代对外分发信任链。
+- **Developer ID Application**：`codesign --force --sign "Developer ID Application: …" --options runtime --deep Your.app`（含子 bundle / 框架时常用 `--deep`）。子组件若格式非法（例如非标准 bundle）会导致签名失败，需先修正结构或单独签名再签外层。
+- **签名时机**：应在向 `.app` 写入**全部**二进制与资源之后再签；改内容后须重签。
+
+## Gatekeeper、隔离与公证
+
+- **隔离（quarantine）**：经浏览器、网盘、IM 下载的文件常带扩展属性 `com.apple.quarantine`，首次打开会走 Gatekeeper 校验。
+- **「已损坏」类提示**：常与「校验未通过」混用，未必是文件物理损坏；未签名/未公证的下载分发易触发。
+- **用户侧权宜**：对可信应用可 `xattr -cr /path/to/App.app` 清除隔离后再开；或 **右键 → 打开**、在 **系统设置 → 隐私与安全性** 中选择仍要打开（若出现）。
+- **对外分发正途**：Apple Developer 账号 → **Developer ID** 签名 → **`notarytool` 提交公证** → **`xcrun stapler staple`** 将票据钉到 `.app`/`.dmg`；未公证的 DMG 在较新系统上仍可能被严格拦截。
+
+## SwiftPM 可执行目标与资源
+
+- Release 目录除主二进制外，可能出现 `TargetName_target.bundle`（资源）；是否拷入 `.app` 取决于运行时 `Bundle.module` 的查找方式及 bundle 是否可被 `codesign` 接受（扁平无 `Info.plist` 的目录可能被 `codesign --deep` 拒绝）。
+- **Xcode 工程**产出的 `.app` 通常已带完整签名链；SPM 手搓 `.app` 时需自行对齐资源与签名策略。
+
+## Finder 自定义文件夹图标
+
+- **API**：`NSWorkspace.shared.setIcon(_ image: NSImage?, forFile fullPath: String, options: NSWorkspace.IconCreationOptions)`；对**文件夹路径**设置缩略图，在 Finder 中显示为自定义图标。
+- **位图要求**：`NSImage` 须能解析的栅格格式（如 PNG）；**不宜**直接依赖系统对 SVG 的 `NSImage(contentsOf:)` 行为（因版本与实现差异大）。
+- **从 SVG 得到 PNG（本机工具）**：可在 SVG 所在目录执行 `qlmanage -t -s <边长> -o . your.svg`，常得到 `your.svg.png`，再改名为项目所用 PNG 文件名；或用手动导出 / 设计工具替代。
+- **打包**：将 PNG 放入 `.app/Contents/Resources/`（或随 SPM 资源 bundle），运行时优先 `Bundle.main`，开发时可用模块 `Bundle.module` 解析资源 URL。
+- **适用范围**：仅对调用之后的路径生效；已存在目录不会自动回溯，除非应用主动遍历并再次 `setIcon`。
+
+## 与本仓库的衔接
+
+- 具体脚本路径、资源文件名、业务触发点以**本仓库**的 `scripts/` 与源码为准；上述为平台通用约定，便于在本项目中落实或对照排查。

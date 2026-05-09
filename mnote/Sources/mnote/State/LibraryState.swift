@@ -217,6 +217,7 @@ final class LibraryState: ObservableObject {
         if fm.fileExists(atPath: newURL.path, isDirectory: &isDirectory) {
             if isDirectory.boolValue {
                 ensureDefaultReadme(in: newURL)
+                WorkspaceFolderIcon.apply(toFolderAt: newURL)
                 reloadNotebooks()
                 selectWorkspace(newURL)
                 userMessage = nil
@@ -229,6 +230,7 @@ final class LibraryState: ObservableObject {
         do {
             try fm.createDirectory(at: newURL, withIntermediateDirectories: false)
             ensureDefaultReadme(in: newURL)
+            WorkspaceFolderIcon.apply(toFolderAt: newURL)
             reloadNotebooks()
             selectWorkspace(newURL)
             userMessage = nil
@@ -312,6 +314,7 @@ final class LibraryState: ObservableObject {
 
         do {
             try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: false)
+            WorkspaceFolderIcon.apply(toFolderAt: folderURL)
             reloadWorkspaceContents()
             selectedDirectoryURL = folderURL
             userMessage = nil
@@ -360,6 +363,7 @@ final class LibraryState: ObservableObject {
         let folderURL = makeUniqueFolderURL(in: parent, baseName: "未命名文件夹")
         do {
             try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: false)
+            WorkspaceFolderIcon.apply(toFolderAt: folderURL)
             reloadWorkspaceContents()
             selectedDirectoryURL = folderURL
             userMessage = nil

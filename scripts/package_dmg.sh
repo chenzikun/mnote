@@ -53,6 +53,11 @@ sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null
 cp "$ICON_SOURCE" "$ICONSET_DIR/icon_512x512@2x.png"
 iconutil -c icns "$ICONSET_DIR" -o "$RESOURCES_DIR/AppIcon.icns"
 
+# 笔记本文件夹自定义图标（NSWorkspace.setIcon）用位图；由 mnote-mark.svg 导出，见 .cursor/mac-build.mdc
+MARK_SRC="$PKG_DIR/Sources/mnote/Resources/assets"
+cp "$MARK_SRC/mnote-mark-folder.png" "$RESOURCES_DIR/"
+cp "$MARK_SRC/mnote-mark.svg" "$RESOURCES_DIR/"
+
 cat > "$PLIST_PATH" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
