@@ -150,10 +150,10 @@ struct SettingsView: View {
             Text("字体")
                 .font(.headline)
 
-            // 字体选择
-            VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 10) {
                 Text("字体族")
                     .font(.subheadline.weight(.medium))
+                    .fixedSize()
 
                 Picker("字体族", selection: Binding(
                     get: { library.editorFontName },
@@ -171,27 +171,25 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                .frame(maxWidth: 220, alignment: .leading)
-            }
+                .frame(minWidth: 120, maxWidth: 220, alignment: .leading)
 
-            // 字号
-            VStack(alignment: .leading, spacing: 6) {
+                Spacer(minLength: 8)
+
                 Text("字号")
                     .font(.subheadline.weight(.medium))
+                    .fixedSize()
 
-                HStack(spacing: 10) {
-                    Stepper(
-                        value: Binding(
-                            get: { library.editorFontSize },
-                            set: { library.setEditorFontSize($0) }
-                        ),
-                        in: 10...24,
-                        step: 1
-                    ) {
-                        Text("\(Int(library.editorFontSize)) pt")
-                            .monospacedDigit()
-                            .frame(minWidth: 44, alignment: .leading)
-                    }
+                Stepper(
+                    value: Binding(
+                        get: { library.editorFontSize },
+                        set: { library.setEditorFontSize($0) }
+                    ),
+                    in: 10...24,
+                    step: 1
+                ) {
+                    Text("\(Int(library.editorFontSize)) pt")
+                        .monospacedDigit()
+                        .frame(minWidth: 40, alignment: .leading)
                 }
             }
 
