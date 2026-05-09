@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# 打包流程对齐 hotkey-macos/build.sh：
+#   swift release → 组装 dist/*.app → codesign（ad-hoc）→ dmg_temp → Applications 链接 → hdiutil → 清理临时目录
+#
+# 可选：export CODESIGN_IDENTITY="Developer ID Application: …" 后执行本脚本，将用正式证书签名（仍需 notarytool 公证才能消除「已损坏」提示）。
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,21 +22,23 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 PLIST_PATH="$CONTENTS_DIR/Info.plist"
-DMG_PATH="$DIST_DIR/${APP_NAME}-${VERSION}.dmg"
-STAGE_DIR="$DIST_DIR/dmg-stage"
+REL_BIN_DIR="$PKG_DIR/.build/release"
+DMG_PATH="$DIST_DIR/${APP_NAME}-v${VERSION}.dmg"
+TEMP_DIR="$DIST_DIR/dmg_temp"
+DMG_VOLNAME="mnote v${VERSION}"
 ICON_SOURCE="$PKG_DIR/Sources/mnote/Resources/assets/macdown-icon-1024.png"
 ICONSET_DIR="$DIST_DIR/AppIcon.iconset"
 
-echo "[1/5] Build release binary (version ${VERSION})"
+echo "=== 构建 mnote v${VERSION} ==="
 swift build -c release --package-path "$PKG_DIR"
 
-echo "[2/5] Assemble .app bundle"
-rm -rf "$APP_DIR" "$STAGE_DIR"
+echo "=== 组装 ${APP_NAME}.app ==="
+rm -rf "$APP_DIR" "$TEMP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
-cp "$PKG_DIR/.build/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+cp "$REL_BIN_DIR/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 
-echo "[2.1/5] Build .icns from MacDown icon"
+echo "=== 生成 AppIcon.icns ==="
 rm -rf "$ICONSET_DIR"
 mkdir -p "$ICONSET_DIR"
 sips -z 16 16 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null
@@ -87,20 +93,44 @@ cat > "$PLIST_PATH" <<EOF
 </plist>
 EOF
 
-echo "[3/5] Prepare DMG staging folder"
-mkdir -p "$STAGE_DIR"
-cp -R "$APP_DIR" "$STAGE_DIR/"
-ln -s /Applications "$STAGE_DIR/Applications"
+echo "=== codesign（与 hotkey-macos/build.sh 一致）==="
+if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
+  codesign --force --deep --options runtime --sign "$CODESIGN_IDENTITY" "$APP_DIR"
+else
+  codesign --force --sign - "$APP_DIR"
+fi
 
-echo "[4/5] Create DMG"
+echo "=== 打包 DMG ==="
+mkdir -p "$DIST_DIR"
 rm -f "$DMG_PATH"
+mkdir -p "$TEMP_DIR"
+cp -R "$APP_DIR" "$TEMP_DIR/"
+ln -sf /Applications "$TEMP_DIR/Applications"
+
+cat > "$TEMP_DIR/使用说明.txt" <<EOF
+mnote v${VERSION}
+
+安装
+1. 将 mnote.app 拖入「应用程序」文件夹
+2. 首次若提示无法打开，可在终端执行：xattr -cr /Applications/mnote.app
+   （从网络下载的应用可能被标记隔离；正式对外分发需 Apple 开发者证书 + 公证）
+
+使用
+在「设置」中选择笔记根目录与笔记本；编辑区为 Markdown，右侧为预览。
+
+© mnote
+EOF
+
 hdiutil create \
-  -volname "mnote ${VERSION}" \
-  -srcfolder "$STAGE_DIR" \
+  -volname "$DMG_VOLNAME" \
+  -srcfolder "$TEMP_DIR" \
   -ov \
   -format UDZO \
   "$DMG_PATH"
 
-echo "[5/5] Done"
-echo "APP: $APP_DIR"
-echo "DMG: $DMG_PATH"
+rm -rf "$TEMP_DIR"
+
+echo ""
+echo "✅ 版本: ${VERSION}"
+echo "✅ APP:  $APP_DIR"
+echo "✅ DMG:  $(du -h "$DMG_PATH" | cut -f1)  ->  $DMG_PATH"
