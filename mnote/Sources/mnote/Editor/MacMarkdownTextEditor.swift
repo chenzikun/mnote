@@ -38,6 +38,8 @@ struct MacMarkdownTextEditor: NSViewRepresentable {
         textView.font = editorFont
         textView.typingAttributes = [.font: editorFont]
         textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.isEditable = true
+        textView.isSelectable = true
         textView.delegate = context.coordinator
         textView.string = text
         Self.applyMarkdownRendering(textView: textView, baseFont: editorFont)
@@ -62,42 +64,63 @@ struct MacMarkdownTextEditor: NSViewRepresentable {
         scrollBridge.editorScrollView = scroll
         context.coordinator.scrollView = scroll
 
-        scroll.wantsLayer = true
-        scroll.layer?.masksToBounds = true
-        Self.applyLayerCorners(to: scroll, bottomLeading: bottomLeadingRadius, bottomTrailing: bottomTrailingRadius)
+        // macOS 14.x：ScrollView 强制 layer + masksToBounds 可能导致 NSTextView 点击/输入异常；15+ 再启用圆角裁剪。
+        Self.configureScrollChrome(scroll, bottomLeading: bottomLeadingRadius, bottomTrailing: bottomTrailingRadius)
 
         return scroll
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         scrollBridge.editorScrollView = scrollView
-        Self.applyLayerCorners(to: scrollView, bottomLeading: bottomLeadingRadius, bottomTrailing: bottomTrailingRadius)
+        Self.configureScrollChrome(scrollView, bottomLeading: bottomLeadingRadius, bottomTrailing: bottomTrailingRadius)
         guard let tv = scrollView.documentView as? NSTextView else { return }
-        if tv.string != text {
+
+        let textChangedExternally = tv.string != text
+        if textChangedExternally {
+            context.coordinator.highlightWorkItem?.cancel()
             tv.string = text
         }
-        if tv.font != editorFont {
+
+        let fontChanged = tv.font != editorFont
+        if fontChanged {
             tv.font = editorFont
             tv.typingAttributes = [.font: editorFont]
         }
-        Self.applyMarkdownRendering(textView: tv, baseFont: editorFont)
-        Self.applyNotebookSearchHighlight(
-            textView: tv,
-            query: notebookSearchQuery,
-            caseSensitive: notebookSearchCaseSensitive,
-            baseFont: editorFont
-        )
+
+        let queryChanged =
+            context.coordinator.lastNotebookSearchQuery != notebookSearchQuery
+            || context.coordinator.lastNotebookSearchCaseSensitive != notebookSearchCaseSensitive
+        context.coordinator.lastNotebookSearchQuery = notebookSearchQuery
+        context.coordinator.lastNotebookSearchCaseSensitive = notebookSearchCaseSensitive
+
+        // 本地输入时每帧整文档着色会破坏光标/IME（尤其在 macOS 14）；外部改内容或字体/查找变更时立即着色。
+        if textChangedExternally || fontChanged || queryChanged {
+            Self.applyMarkdownRendering(textView: tv, baseFont: editorFont)
+            Self.applyNotebookSearchHighlight(
+                textView: tv,
+                query: notebookSearchQuery,
+                caseSensitive: notebookSearchCaseSensitive,
+                baseFont: editorFont
+            )
+        }
     }
 
-    /// 对 NSScrollView 的 CALayer 直接设置底部圆角（NSView 层坐标系已翻转：MaxY = 底部）。
-    private static func applyLayerCorners(to scroll: NSScrollView, bottomLeading: CGFloat, bottomTrailing: CGFloat) {
-        guard let layer = scroll.layer else { return }
+    /// macOS 15+：用 layer 做底部圆角；14.x 关闭 scroll 的 layer，避免编辑区无法点击或无法输入。
+    private static func configureScrollChrome(_ scroll: NSScrollView, bottomLeading: CGFloat, bottomTrailing: CGFloat) {
         let radius = max(bottomLeading, bottomTrailing)
-        layer.cornerRadius = radius
-        var mask = CACornerMask()
-        if bottomLeading  > 0 { mask.insert(.layerMinXMaxYCorner) }
-        if bottomTrailing > 0 { mask.insert(.layerMaxXMaxYCorner) }
-        layer.maskedCorners = mask
+        if #available(macOS 15.0, *) {
+            scroll.wantsLayer = true
+            scroll.layer?.masksToBounds = true
+            guard let layer = scroll.layer else { return }
+            layer.cornerRadius = radius
+            var mask = CACornerMask()
+            if bottomLeading > 0 { mask.insert(.layerMinXMaxYCorner) }
+            if bottomTrailing > 0 { mask.insert(.layerMaxXMaxYCorner) }
+            layer.maskedCorners = mask
+        } else {
+            scroll.wantsLayer = false
+            scroll.layer?.masksToBounds = false
+        }
     }
 
     private static func applyMarkdownRendering(textView: NSTextView, baseFont: NSFont) {
@@ -148,12 +171,16 @@ struct MacMarkdownTextEditor: NSViewRepresentable {
         var parent: MacMarkdownTextEditor
         weak var scrollView: NSScrollView?
         var boundsObserver: NSObjectProtocol?
+        var highlightWorkItem: DispatchWorkItem?
+        var lastNotebookSearchQuery: String = ""
+        var lastNotebookSearchCaseSensitive: Bool = false
 
         init(_ parent: MacMarkdownTextEditor) {
             self.parent = parent
         }
 
         deinit {
+            highlightWorkItem?.cancel()
             if let boundsObserver {
                 NotificationCenter.default.removeObserver(boundsObserver)
             }
@@ -166,6 +193,26 @@ struct MacMarkdownTextEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             parent.text = tv.string
+            scheduleDebouncedHighlight(on: tv)
+        }
+
+        /// 输入过程中合并着色请求，避免每帧 `NSTextStorage` 全量改写导致光标丢失或无法编辑（macOS 14 更明显）。
+        private func scheduleDebouncedHighlight(on tv: NSTextView) {
+            highlightWorkItem?.cancel()
+            let font = parent.editorFont
+            let query = parent.notebookSearchQuery
+            let caseSens = parent.notebookSearchCaseSensitive
+            let work = DispatchWorkItem {
+                MacMarkdownTextEditor.applyMarkdownRendering(textView: tv, baseFont: font)
+                MacMarkdownTextEditor.applyNotebookSearchHighlight(
+                    textView: tv,
+                    query: query,
+                    caseSensitive: caseSens,
+                    baseFont: font
+                )
+            }
+            highlightWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14, execute: work)
         }
     }
 }

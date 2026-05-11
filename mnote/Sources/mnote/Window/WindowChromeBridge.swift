@@ -59,9 +59,8 @@ private final class ChromeTitleConfiguratorView: NSView {
             window.styleMask.insert(.fullSizeContentView)
         }
         window.toolbar?.showsBaselineSeparator = false
-        if #available(macOS 13.0, *) {
-            window.titlebarSeparatorStyle = .none
-        }
+        // titlebarSeparatorStyle 是 macOS 13+ API；最低部署目标为 macOS 14，无需 #available 保护。
+        window.titlebarSeparatorStyle = .none
 
         if appStyle.isGlass {
             // glass：窗口完全透明，SwiftUI 玻璃渐变透出

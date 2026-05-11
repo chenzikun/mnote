@@ -16,6 +16,11 @@ struct MarkdownPreviewWebView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         let web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = context.coordinator
+        // 公开 API（macOS 12+）：抑制超出内容区域时的背景拉伸色
+        web.underPageBackgroundColor = .clear
+        // KVC 路径：抑制 WebKit 内部绘图背景；目前仍是使 WKWebView 完全透明的必要手段。
+        // Apple 已封过 scrollView KVC（故 MarkdownScrollBridge 改为 BFS 遍历），
+        // 此路径暂时有效；underPageBackgroundColor 作为公开备份，一旦 KVC 失效可提供部分保障。
         web.setValue(false, forKey: "drawsBackground")
         context.coordinator.attachScrollObservationIfNeeded(webView: web)
         return web
@@ -81,14 +86,15 @@ struct MarkdownPreviewWebView: NSViewRepresentable {
             didAttachScroll = true
         }
 
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        // async 版本（macOS 13+ / iOS 16+，项目最低 macOS 14 覆盖），
+        // 替代已弃用的基于 @escaping decisionHandler 闭包的旧签名。
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
             if navigationAction.navigationType == .linkActivated,
                let url = navigationAction.request.url {
                 onOpenLink(url.absoluteString)
-                decisionHandler(.cancel)
-                return
+                return .cancel
             }
-            decisionHandler(.allow)
+            return .allow
         }
     }
 }

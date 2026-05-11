@@ -772,6 +772,8 @@ final class LibraryState: ObservableObject {
         flushPendingAutoSave()
         configStore.reloadFromDisk()
         restoreAppearanceSettings()
+        // 必须与设置窗口共用同一套 config：否则主窗口 root/workspace 仍为空，需重启才能新建笔记本。
+        restoreFromDisk()
     }
 
     private func notifyPersistenceChanged() {

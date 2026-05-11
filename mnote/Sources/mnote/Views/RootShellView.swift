@@ -249,11 +249,7 @@ struct RootShellView: View {
                     description: Text("请先在设置中选择 root。")
                 )
             } else if library.notebooks.isEmpty {
-                ContentUnavailableView(
-                    "还没有笔记本",
-                    systemImage: "book.closed",
-                    description: Text("点击工具栏中的「新建笔记本」创建。")
-                )
+                emptyNotebooksView
             } else {
                 ContentUnavailableView(
                     "未选择笔记本",
@@ -604,6 +600,26 @@ struct RootShellView: View {
             return
         }
         presentRenameSheet(for: url)
+    }
+
+    /// 有 root 但尚无笔记本时的空状态视图；内嵌按钮直接触发创建弹窗，无需引导用户找工具栏。
+    private var emptyNotebooksView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text("还没有笔记本")
+                .font(.title3.weight(.semibold))
+            Text("在根目录下创建第一个笔记本，开始记录。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button(action: beginNewNotebookSheet) {
+                Label("新建笔记本", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - 编辑区
