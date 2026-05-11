@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import SwiftUI
 
 extension Notification.Name {
     /// 任一会话写入了共享配置（根目录、笔记本书签、外观等），其他 `LibraryState` 应重新从磁盘对齐。
@@ -65,6 +66,11 @@ final class LibraryState: ObservableObject {
     /// 当前有效的编辑器 NSFont（字体未安装时自动回退到 SF Mono）。
     var resolvedEditorFont: NSFont {
         EditorFontPreset.preset(for: editorFontName).resolve(size: editorFontSize)
+    }
+
+    /// SwiftUI Font 版本，安全处理动态系统字体（macOS 26+ `monospacedSystemFont` 返回动态字体，`Font(NSFont:)` 失败）。
+    var resolvedEditorSwiftUIFont: Font {
+        EditorFontPreset.preset(for: editorFontName).swiftUIFont(size: editorFontSize)
     }
 
     // MARK: - 笔记本全文搜索
