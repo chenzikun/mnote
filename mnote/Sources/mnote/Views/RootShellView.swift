@@ -817,43 +817,64 @@ struct RootShellView: View {
 
     private var mainToolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
+            // 透明标题栏 + 隐藏工具栏材质时，Label 的 template 着色在禁用态可能与背景融在一起，图标「消失」。
+            // 显式用 labelColor / disabledControlTextColor，行为与 hotkey 类工具栏更一致。
             Button {
                 library.setReadingMode(!library.readingMode)
             } label: {
-                Label(
-                    library.readingMode ? "编辑模式" : "阅读模式",
-                    systemImage: library.readingMode ? "doc.text" : "book.pages"
-                )
+                Image(systemName: library.readingMode ? "doc.text" : "book.pages")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(nsColor: .labelColor))
             }
             .help(library.readingMode ? "显示编辑器" : "仅全宽预览")
             .keyboardShortcut("l", modifiers: [.command, .shift])
+            .accessibilityLabel(library.readingMode ? "编辑模式" : "阅读模式")
 
             Button {
                 if !library.readingMode {
                     library.setPreviewVisible(!library.previewVisible)
                 }
             } label: {
-                Label(
-                    library.previewVisible ? "隐藏预览" : "显示预览",
-                    systemImage: library.previewVisible ? "rectangle.split.2x1" : "rectangle.split.2x1.fill"
-                )
+                Image(systemName: library.previewVisible ? "rectangle.split.2x1" : "rectangle.split.2x1.fill")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(
+                        Color(nsColor: library.readingMode ? .disabledControlTextColor : .labelColor)
+                    )
             }
             .disabled(library.readingMode)
             .help(library.readingMode ? "阅读模式下始终显示预览" : (library.previewVisible ? "隐藏预览栏" : "显示预览栏"))
+            .accessibilityLabel(library.previewVisible ? "隐藏预览" : "显示预览")
 
             Button(action: beginNewNotebookSheet) {
-                Label("新建笔记本", systemImage: "book.badge.plus")
+                Image(systemName: Self.newNotebookToolbarSymbolName)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(
+                        Color(nsColor: library.rootURL == nil ? .disabledControlTextColor : .labelColor)
+                    )
             }
             .disabled(library.rootURL == nil)
-            .help("选择或新建笔记本")
+            .help(library.rootURL == nil ? "请先在设置中选择根目录，再新建笔记本" : "选择或新建笔记本")
+            .accessibilityLabel("新建笔记本")
 
             Button {
                 openSettings()
             } label: {
-                Label("设置", systemImage: "gearshape")
+                Image(systemName: "gearshape")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(nsColor: .labelColor))
             }
             .help("打开设置")
+            .accessibilityLabel("设置")
         }
+    }
+
+    /// `book.badge.plus` 在极少数系统/字体配置下空图；回退到常见符号。
+    private static var newNotebookToolbarSymbolName: String {
+        let primary = "book.badge.plus"
+        if NSImage(systemSymbolName: primary, accessibilityDescription: nil) != nil {
+            return primary
+        }
+        return "book.closed.fill"
     }
 
     private func beginNewNotebookSheet() {
