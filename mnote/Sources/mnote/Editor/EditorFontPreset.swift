@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// 编辑器等宽字体预设；仅列出程序员常用字体，运行时自动过滤系统中未安装的项。
 struct EditorFontPreset: Identifiable, Equatable {
@@ -42,5 +43,18 @@ struct EditorFontPreset: Identifiable, Equatable {
     /// 从持久化的 id 字符串还原预设；未找到时返回系统默认。
     static func preset(for id: String) -> EditorFontPreset {
         all.first { $0.id == id } ?? all[0]
+    }
+
+    /// SwiftUI Font，安全处理系统动态字体。
+    /// macOS 26+ 起 `monospacedSystemFont` 返回 `.AppleSystemUIFontMonospaced-Regular`（动态字体），
+    /// `Font(NSFont:)` 桥接不支持动态字体会导致渲染失败；system preset 改用 `.system(design:.monospaced)`。
+    func swiftUIFont(size: CGFloat) -> Font {
+        if id == "system" {
+            return .system(size: size, design: .monospaced)
+        }
+        if let nsFont = NSFont(name: id, size: size) {
+            return Font(nsFont)
+        }
+        return .system(size: size, design: .monospaced)
     }
 }

@@ -160,13 +160,8 @@ struct SettingsView: View {
                     set: { library.setEditorFontName($0) }
                 )) {
                     ForEach(EditorFontPreset.available) { preset in
-                        Text(preset.displayName)
-                            .font(
-                                preset.id == "system"
-                                    ? Font(NSFont.monospacedSystemFont(ofSize: 13, weight: .regular))
-                                    : Font(NSFont(name: preset.id, size: 13) ?? NSFont.monospacedSystemFont(ofSize: 13, weight: .regular))
-                            )
-                            .tag(preset.id)
+                        // 复杂三目表达式拆出，避免编译器类型推断超时
+                        FontPickerRow(preset: preset)
                     }
                 }
                 .labelsHidden()
@@ -320,5 +315,17 @@ private struct AppStyleCard: View {
         )
         .contentShape(Rectangle())
         .animation(.easeInOut(duration: 0.15), value: isSelected)
+    }
+}
+
+// MARK: - Picker 行（拆出避免编译器类型推断超时）
+
+private struct FontPickerRow: View {
+    let preset: EditorFontPreset
+
+    var body: some View {
+        Text(preset.displayName)
+            .font(preset.swiftUIFont(size: 13))
+            .tag(preset.id)
     }
 }
