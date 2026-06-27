@@ -6,9 +6,9 @@
 
 ### 预览
 
-![主页面](assets/mnote.png)
+![主页面](./assets/mnote.png)
 
-![设置页面](assets/setting.png)
+![设置页面](./assets/setting.png)
 
 ## 仓库目录
 
